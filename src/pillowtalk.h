@@ -22,8 +22,7 @@ typedef struct {
 } pt_response_t;
 
 // Opaque type for iterator
-typedef struct {
-} pt_iterator_t;
+typedef struct pt_iterator_t pt_iterator_t;
 
 void pt_init();
 void pt_cleanup();

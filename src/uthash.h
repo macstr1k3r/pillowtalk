@@ -421,9 +421,10 @@ do {                                                                           \
 do {                                                                           \
   const unsigned int _mur_m = 0x5bd1e995;                                      \
   const int _mur_r = 24;                                                       \
-  hashv = 0xcafebabe ^ keylen;                                                 \
   char *_mur_key = (char *)key;                                                \
-  uint32_t _mur_tmp, _mur_len = keylen;                                        \
+  uint32_t _mur_tmp;                                                           \
+  uint32_t _mur_len = keylen;                                                  \
+  hashv = 0xcafebabe ^ keylen;                                                 \
                                                                                \
   for (;_mur_len >= 4; _mur_len-=4) {                                          \
     _mur_tmp = *(uint32_t *)_mur_key;                                          \

@@ -78,7 +78,7 @@ void pt_map_unset(pt_node_t* map, const char* key);
 
 pt_node_t* pt_null_new();
 pt_node_t* pt_bool_new(int boolean);
-pt_node_t* pt_integer_new(int integer);
+pt_node_t* pt_integer_new(long long integer);
 pt_node_t* pt_double_new(double dbl);
 pt_node_t* pt_string_new(const char* str);
 pt_node_t* pt_map_new();

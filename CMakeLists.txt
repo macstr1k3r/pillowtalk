@@ -17,12 +17,15 @@ IF (NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE "Release")
 ENDIF (NOT CMAKE_BUILD_TYPE)
 
+SET(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "/Users/nedm/software/install/include")
+SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "/Users/nedm/software/install/lib")
+
 # Here we look for curl
 #FIND_PATH(CURL_INCLUDE_DIR curl.h /usr/local/include/curl /usr/include/curl )
-#FIND_LIBRARY(CURL_LIBRARY NAMES curl PATHS /usr/local/lib /usr/lib NO_DEFAULT_PATH)
+#FIND_LIBRARY(CURL_LIBRARY NAMES curl PATHS c:\Users\nedm\software\install\lib NO_DEFAULT_PATH)
 
 FIND_PATH(CURL_INCLUDE_DIR curl/curl.h)
-FIND_LIBRARY(CURL_LIBRARY NAMES curl)
+FIND_LIBRARY(CURL_LIBRARY NAMES curl libcurl PATHS ${CMAKE_LIBRARY_PATH})
 
 MESSAGE("-- Curl Include Dir:" ${CURL_INCLUDE_DIR})
 MESSAGE("-- Curl Library:" ${CURL_LIBRARY})
@@ -54,6 +57,11 @@ IF (YAJL_VERSION)
 ENDIF (YAJL_VERSION)
 
 INCLUDE_DIRECTORIES(${YAJL_INCLUDE_DIR})
+# Installation Step
+IF(WIN32)
+  ADD_DEFINITIONS(-DPT_BUILD)
+  ADD_DEFINITIONS(-DPT_SHARED)
+ENDIF(WIN32)
 
 add_subdirectory(src)
 add_subdirectory(test)

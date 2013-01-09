@@ -289,12 +289,12 @@ int pt_boolean_get(pt_node_t* boolean)
   }
 }
 
-int pt_integer_get(pt_node_t* integer)
+long long pt_integer_get(pt_node_t* integer)
 {
   if (integer && integer->type == PT_INTEGER) {
     return ((pt_int_value_t*) integer)->value;
   } else if (integer && integer->type == PT_DOUBLE) {
-    return (int) ((pt_double_value_t*) integer)->value;
+    return (long long) ((pt_double_value_t*) integer)->value;
   } else {
     return 0;
   }
@@ -343,7 +343,7 @@ pt_node_t* pt_bool_new(int boolean)
   return (pt_node_t*) new_node;
 }
 
-pt_node_t* pt_integer_new(int integer)
+pt_node_t* pt_integer_new(long long integer)
 {
   pt_int_value_t* new_node = (pt_int_value_t*) calloc(1,sizeof(pt_int_value_t));
   new_node->parent.type = PT_INTEGER;

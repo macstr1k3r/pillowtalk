@@ -115,12 +115,12 @@ pt_response_t* pt_put(const char* server_target, pt_node_t* doc)
 {
   char* data = NULL;
   int data_len = 0;
+  pt_response_t* res = 0;
   if (doc) {
     data = pt_to_json(doc,0);
-    if (data)
-      data_len = strlen(data);
+    if (data) data_len = strlen(data);
   }
-  pt_response_t* res = http_operation("PUT",server_target,data,data_len);
+  res = http_operation("PUT",server_target,data,data_len);
   res->root = parse_json(res->raw_json,res->raw_json_len);
   if (data)
     free(data);
@@ -413,6 +413,14 @@ pt_node_t* pt_array_new()
 
 char* pt_to_json(pt_node_t* root, int beautify)
 {
+  const unsigned char * gen_buf = NULL;
+  char* json = NULL;
+#ifdef HAVE_YAJL_V2
+  size_t len = 0;
+#else
+  unsigned int len = 0;
+#endif
+
 #ifdef HAVE_YAJL_V2
   yajl_gen g = yajl_gen_alloc(NULL);
   yajl_gen_config(g, yajl_gen_beautify, beautify);
@@ -423,14 +431,6 @@ char* pt_to_json(pt_node_t* root, int beautify)
 #endif
 
   generate_node_json(root,g);
-
-  const unsigned char * gen_buf = NULL;
-  char* json = NULL;
-#ifdef HAVE_YAJL_V2
-  size_t len = 0;
-#else
-  unsigned int len = 0;
-#endif
 
   yajl_gen_get_buf(g, &gen_buf, &len);
 
@@ -450,12 +450,11 @@ pt_node_t* pt_from_json(const char* json)
 
 int pt_map_update(pt_node_t* root, pt_node_t* additions, int append)
 {
-  if (!root || !additions || root->type != PT_MAP || additions->type != PT_MAP)
-    return 1;
-
-  //pt_map_t* root_map = (pt_map_t*) root;
   pt_map_t* additions_map = (pt_map_t*) additions;
   pt_key_value_t* key_value = NULL;
+  if (!root || !additions || root->type != PT_MAP || additions->type != PT_MAP) 
+	  return 1;
+
   for(key_value = additions_map->key_values; key_value != NULL; key_value = key_value->hh.next) {
     if (key_value->value) {
       pt_node_t* existing = pt_map_get(root,key_value->key);
@@ -532,10 +531,11 @@ static pt_response_t* http_operation(const char* http_method, const char* server
   CURL *curl_handle;
   CURLcode ret;
   struct memory_chunk recv_chunk;
+  struct memory_chunk send_chunk = {0,0,0};
+  pt_response_t* res;
   recv_chunk.memory=NULL; /* we expect realloc(NULL, size) to work */
   recv_chunk.size = 0;    /* no data at this point */
-
-  struct memory_chunk send_chunk = {0,0,0};
+ 
 
   /* init the curl session */
   curl_handle = curl_easy_init();
@@ -577,7 +577,7 @@ static pt_response_t* http_operation(const char* http_method, const char* server
   /* get it! */
   ret = curl_easy_perform(curl_handle);
 
-  pt_response_t* res = calloc(1,sizeof(pt_response_t));
+  res = calloc(1,sizeof(pt_response_t));
   if ((!ret)) {
     ret = curl_easy_getinfo(curl_handle,CURLINFO_RESPONSE_CODE, &res->response_code);
     if (ret != CURLE_OK)
@@ -628,10 +628,10 @@ static size_t recv_memory_callback(void *ptr, size_t size, size_t nmemb, void *d
 static size_t send_memory_callback(void *ptr, size_t size, size_t nmemb, void *data)
 {
   size_t realsize = size * nmemb;
+  struct memory_chunk* mem = (struct memory_chunk*) data;
   if(realsize < 1)
     return 0;
 
-  struct memory_chunk* mem = (struct memory_chunk*) data;
   if (mem->size > 0) {
     size_t bytes_to_copy = (mem->size > realsize) ? realsize : mem->size;
     memcpy(ptr,mem->offset,bytes_to_copy);
@@ -667,10 +667,13 @@ static int json_map_key(void* ctx, const unsigned char* str, unsigned int length
 #endif
 {
   pt_parser_ctx_t* parser_ctx= (pt_parser_ctx_t*) ctx;
+  pt_map_t* container;
+  pt_key_value_t* new_node;
+  char* new_str;
   assert(parser_ctx->stack && parser_ctx->stack->container->type == PT_MAP);
-  pt_map_t* container = (pt_map_t*) parser_ctx->stack->container;
-  pt_key_value_t* new_node = (pt_key_value_t*) calloc(1,sizeof(pt_key_value_t));
-  char* new_str = (char*) malloc(length + 1);
+  container = (pt_map_t*) parser_ctx->stack->container;
+  new_node = (pt_key_value_t*) calloc(1,sizeof(pt_key_value_t));
+  new_str = (char*) malloc(length + 1);
   memcpy(new_str,str,length);
   new_str[length] = 0x0;
   new_node->key = new_str;
@@ -711,9 +714,10 @@ static int json_string(void* ctx, const unsigned char* str, unsigned int length)
 #endif
 {
   char* new_str = (char*) malloc(length + 1);
+  pt_str_value_t* node;
   memcpy(new_str,str,length);
   new_str[length] = 0x0;
-  pt_str_value_t* node = (pt_str_value_t*) calloc(1,sizeof(pt_str_value_t));
+  node = (pt_str_value_t*) calloc(1,sizeof(pt_str_value_t));
   node->parent.type = PT_STRING;
   node->value = new_str;
   add_node_to_context_container(ctx,(pt_node_t*) node);
@@ -727,9 +731,10 @@ static int json_start_map(void* ctx)
 {
   pt_parser_ctx_t* parser_ctx = (pt_parser_ctx_t*) ctx;
   pt_node_t* new_node = (pt_node_t*) calloc(1,sizeof(pt_map_t));
+  pt_container_ctx_t* new_ctx;
   new_node->type = PT_MAP;
   add_node_to_context_container(parser_ctx,new_node);
-  pt_container_ctx_t* new_ctx = (pt_container_ctx_t*) calloc(1,sizeof(pt_container_ctx_t));
+  new_ctx = (pt_container_ctx_t*) calloc(1,sizeof(pt_container_ctx_t));
   new_ctx->container = new_node;
   LL_PREPEND(parser_ctx->stack,new_ctx);
   return 1;
@@ -751,10 +756,11 @@ static int json_start_array(void* ctx)
 {
   pt_parser_ctx_t* parser_ctx = (pt_parser_ctx_t*) ctx;
   pt_array_t* new_node = (pt_array_t*) calloc(1,sizeof(pt_array_t));
+  pt_container_ctx_t* new_ctx;
   TAILQ_INIT(&new_node->head);
   new_node->parent.type = PT_ARRAY;
   add_node_to_context_container(parser_ctx,(pt_node_t*) new_node);
-  pt_container_ctx_t* new_ctx = (pt_container_ctx_t*) calloc(1,sizeof(pt_container_ctx_t));
+  new_ctx = (pt_container_ctx_t*) calloc(1,sizeof(pt_container_ctx_t));
   new_ctx->container = (pt_node_t*) new_node;
   new_ctx->cur = (pt_node_t*) new_node;
   LL_PREPEND(parser_ctx->stack,new_ctx);
@@ -806,7 +812,7 @@ static pt_node_t* parse_json(const char* json, int json_len)
 #ifndef HAVE_YAJL_V2
   yajl_parser_config cfg = { 0, 1 };
 #endif
-
+  pt_node_t* root;
   pt_parser_ctx_t* parser_ctx = (pt_parser_ctx_t*) calloc(1,sizeof(pt_parser_ctx_t));
 
 #ifdef HAVE_YAJL_V2
@@ -830,7 +836,7 @@ static pt_node_t* parse_json(const char* json, int json_len)
     yajl_free_error(hand, str);
   }
 
-  pt_node_t* root = parser_ctx->root;
+  root = parser_ctx->root;
   free_parser_ctx(parser_ctx);
   yajl_free(hand);
   return root;

@@ -67,16 +67,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * The SORT macros                                                            *
  *****************************************************************************/
 #define LL_SORT(l,cmp)                                                           \
- LISTSORT(l,0,0,FIELD_OFFSET(l,next),cmp)
+ LISTSORT(l,0,0,FIELD_OFFSET_(l,next),cmp)
 #define DL_SORT(l,cmp)                                                           \
- LISTSORT(l,0,FIELD_OFFSET(l,prev),FIELD_OFFSET(l,next),cmp)
+ LISTSORT(l,0,FIELD_OFFSET_(l,prev),FIELD_OFFSET_(l,next),cmp)
 #define CDL_SORT(l,cmp)                                                          \
- LISTSORT(l,1,FIELD_OFFSET(l,prev),FIELD_OFFSET(l,next),cmp)
+ LISTSORT(l,1,FIELD_OFFSET_(l,prev),FIELD_OFFSET_(l,next),cmp)
 
 /* The macros can't assume or cast to the caller's list element type. So we use
  * a couple tricks when we need to deal with those element's prev/next pointers.
  * Basically we use char pointer arithmetic to get those field offsets. */
-#define FIELD_OFFSET(ptr,field) ((char*)&((ptr)->field) - (char*)(ptr))
+#define FIELD_OFFSET_(ptr,field) ((char*)&((ptr)->field) - (char*)(ptr))
 #define LNEXT(e,no) (*(char**)(((char*)e) + no))
 #define LPREV(e,po) (*(char**)(((char*)e) + po))
 /******************************************************************************
@@ -167,7 +167,7 @@ do {                                                                            
   (add)->next=NULL;                                                              \
   if (head) {                                                                    \
     char *_lla_el = (char*)(head);                                               \
-    unsigned _lla_no = FIELD_OFFSET(head,next);                                  \
+    unsigned _lla_no = FIELD_OFFSET_(head,next);                                  \
     while (LNEXT(_lla_el,_lla_no)) { _lla_el = LNEXT(_lla_el,_lla_no); }         \
     LNEXT(_lla_el,_lla_no)=(char*)(add);                                         \
   } else {                                                                       \
@@ -181,7 +181,7 @@ do {                                                                            
     (head)=(head)->next;                                                         \
   } else {                                                                       \
     char *_lld_el = (char*)(head);                                               \
-    unsigned _lld_no = FIELD_OFFSET(head,next);                                  \
+    unsigned _lld_no = FIELD_OFFSET_(head,next);                                  \
     while (LNEXT(_lld_el,_lld_no) && (LNEXT(_lld_el,_lld_no) != (char*)(del))) { \
       _lld_el = LNEXT(_lld_el,_lld_no);                                          \
     }                                                                            \

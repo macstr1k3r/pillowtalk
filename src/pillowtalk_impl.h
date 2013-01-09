@@ -48,7 +48,7 @@ typedef struct {
 
 typedef struct {
   pt_node_t parent;
-  int value;
+  long long value;
 } pt_int_value_t;
 
 typedef struct {

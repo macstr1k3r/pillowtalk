@@ -64,7 +64,7 @@ pt_node_t* pt_array_get(pt_node_t* array, unsigned int idx);
 
 int pt_is_null(pt_node_t* null);
 int pt_boolean_get(pt_node_t* boolean);
-int pt_integer_get(pt_node_t* integer);
+long long pt_integer_get(pt_node_t* integer);
 double pt_double_get(pt_node_t* dbl);
 const char* pt_string_get(pt_node_t* string);
 
@@ -78,7 +78,7 @@ void pt_map_unset(pt_node_t* map, const char* key);
 
 pt_node_t* pt_null_new();
 pt_node_t* pt_bool_new(int boolean);
-pt_node_t* pt_integer_new(int integer);
+pt_node_t* pt_integer_new(long long integer);
 pt_node_t* pt_double_new(double dbl);
 pt_node_t* pt_string_new(const char* str);
 pt_node_t* pt_map_new();

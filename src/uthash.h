@@ -26,7 +26,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string.h>   /* memcmp,strlen */
 #include <stddef.h>   /* ptrdiff_t */
+#ifdef _WIN32
+#include <stdint.h>
+#else
 #include <inttypes.h> /* uint32_t etc */
+#endif
 
 #define UTHASH_VERSION 1.6
 

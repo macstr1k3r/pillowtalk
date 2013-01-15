@@ -585,7 +585,7 @@ void pt_printout(pt_node_t* root, const char* indent)
       if (((pt_bool_value_t*) root)->value) printf("%sTrue", myindent);
       else printf("%sFalse", myindent);
     case PT_INTEGER:
-      printf("%s%i", myindent, ((pt_int_value_t*) root)->value);
+      printf("%s%lld", myindent, ((pt_int_value_t*) root)->value);
       break; 
     case PT_DOUBLE:
       printf("%s%f", myindent, ((pt_double_value_t*) root)->value);

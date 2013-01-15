@@ -27,6 +27,10 @@ char* index(const char* s, int c)
   }
   return NULL;
 }
+
+// define over snprintf
+#define snprintf(buf, buf_size, form, ...) sprintf_s(buf, buf_size, form, __VA_ARGS__)
+
 #endif
 
 struct pt_thread_obj_t
@@ -300,7 +304,7 @@ char* pt_changes_feed_build_url(const char* server_name,
   ret_str = calloc(1, size_of_string);
 
   // Add the changes feed base URL 
-  sprintf(ret_str, "%s/%s/_changes", server_name, db);
+  snprintf(ret_str, size_of_string, "%s/%s/_changes", server_name, db);
   if (!handle->continuous && !handle->heartbeats &&
       !safe_strlen(handle->extra_opts)) return ret_str; 
  
@@ -310,7 +314,8 @@ char* pt_changes_feed_build_url(const char* server_name,
 
   // Hearbeat
   if (handle->heartbeats) {
-    sprintf(ret_str + strlen(ret_str),"heartbeat=%i&",handle->heartbeats);
+    snprintf(ret_str + strlen(ret_str),size_of_string - strlen(ret_str),
+      "heartbeat=%i&",handle->heartbeats);
   }
 
   // Continuous

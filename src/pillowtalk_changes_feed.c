@@ -179,8 +179,8 @@ void pt_buffer_free(pt_buffer buf)
 void pt_append_to_list(pt_changes_feed handle, pt_node_t* node)
 {
   pt_changes_feed_ll new_list_entry = pt_list_alloc();
-  new_list_entry->line = node;
   pt_changes_feed_ll test = NULL;
+  new_list_entry->line = node;
 
   // Acquire the lock
   CHECK_LOCK_MUTEX(handle->thread, &handle->thread->list_mutex);
@@ -292,6 +292,7 @@ char* pt_changes_feed_build_url(const char* server_name,
   const pt_changes_feed handle)
 {
   char *ret_str;
+  char* end_of_string;
   size_t size_of_string = safe_strlen(server_name) + 
                           safe_strlen(db) + 
                           safe_strlen(handle->extra_opts) +
@@ -319,7 +320,7 @@ char* pt_changes_feed_build_url(const char* server_name,
   if (safe_strlen(handle->extra_opts)) strcat(ret_str, handle->extra_opts);
   
   // If we have an ampersand on the end, remove it
-  char* end_of_string = &ret_str[safe_strlen(ret_str)-1];
+  end_of_string = &ret_str[safe_strlen(ret_str)-1];
   if (*end_of_string == '&') *end_of_string = '\0'; 
   return ret_str; 
 }
@@ -384,6 +385,7 @@ void *pt_readout_thread(void *arg)
 
   pt_signal_data_is_done(handle);
   pthread_exit(0);
+  return 0;
 }
 
 //___________________________________________________________________________
@@ -410,6 +412,8 @@ void pt_changes_feed_run(pt_changes_feed handle,
   CURL *curl_handle;
   char *full_server_path = 
     pt_changes_feed_build_url(server_name, database, handle);
+  pt_thread_obj thread_obj;
+  pt_thread_arg arg;
 
   /* init the curl session */
   curl_handle = curl_easy_init();
@@ -444,8 +448,9 @@ void pt_changes_feed_run(pt_changes_feed handle,
     // Alloc a thread
     handle->thread = pt_thread_alloc();
     // pass information to the handle 
-    pt_thread_obj thread_obj = handle->thread;  
-    pt_thread_arg arg = { curl_handle, handle };
+    thread_obj = handle->thread;  
+    arg.curl_handle = curl_handle;
+    arg.cf_handle   = handle;
     
     // Set the status of the handle to stale.
     handle->status = pt_changes_feed_data_stale;
@@ -528,6 +533,10 @@ int pt_process_changes_feed_buffer(pt_changes_feed handle, int flush)
 {
   int ret_val = 0;
   pt_buffer buffer = handle->temp_buffer;
+  size_t available_data_size;
+  char *current_ptr;
+  char *next_end_line;
+  pt_node_t *anode;
 
   // If we're not doing a continuous feed, simply return
   // If we are not flushing and not continuous, just return.
@@ -535,7 +544,7 @@ int pt_process_changes_feed_buffer(pt_changes_feed handle, int flush)
   if (!flush && !handle->continuous) return ret_val;
   if (flush && !handle->continuous) {
     // process the entire chunk that came out as json
-    pt_node_t *anode = pt_from_json(buffer->buffer); 
+    anode = pt_from_json(buffer->buffer); 
     pt_append_to_list(handle, anode);
     // Reset the buffer size
     buffer->size = 0; 
@@ -543,10 +552,10 @@ int pt_process_changes_feed_buffer(pt_changes_feed handle, int flush)
     return ret_val;
   } 
   // Now simply try to grab as much as possible
-  size_t available_data_size = buffer->size;
-  char *current_ptr = buffer->buffer;
+  available_data_size = buffer->size;
+  current_ptr = buffer->buffer;
   while (available_data_size > 0) {
-    char *next_end_line = index(current_ptr, '\n');
+    next_end_line = index(current_ptr, '\n');
     if (!next_end_line) break;
     // we have a ptr to the next end line
     if (next_end_line == current_ptr) {
@@ -559,7 +568,7 @@ int pt_process_changes_feed_buffer(pt_changes_feed handle, int flush)
     }
     // otherwise process the line
     *next_end_line = '\0';
-    pt_node_t *anode = pt_from_json(current_ptr);
+    anode = pt_from_json(current_ptr);
     pt_append_to_list(handle, anode);
     if (anode) ret_val++;
     available_data_size -= (next_end_line - current_ptr + 1); 

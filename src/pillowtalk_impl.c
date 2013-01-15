@@ -19,6 +19,11 @@
 #  define HAVE_YAJL_V2 1
 #endif
 
+#ifdef _WIN32
+// Windows uses _strdup instread of strdup (POSIX name)
+#define strdup _strdup
+#endif
+
 /* Structs */
 struct memory_chunk {
   char *memory;

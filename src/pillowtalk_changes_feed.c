@@ -14,6 +14,21 @@ typedef struct pt_changes_feed_linked_list_t * pt_changes_feed_ll;
 typedef struct pt_thread_obj_t * pt_thread_obj;
 typedef struct pt_buffer_t * pt_buffer;
 
+#ifdef _WIN32
+// Defining a function in windows that is common on linux and defined in
+// string.h
+char* index(const char* s, int c)
+{
+  char* ptr = (char*)s;
+  if (ptr == NULL) return NULL;
+  while(*ptr != '\0') {
+    if (*ptr == (char)c) return ptr;
+    ptr++;
+  }
+  return NULL;
+}
+#endif
+
 struct pt_thread_obj_t
 {
   pthread_t        thread;

@@ -9,6 +9,10 @@
 using namespace std;
 using namespace boost::unit_test;
 
+#ifdef _WIN32
+#define strdup _strdup
+#endif
+
 static string 
 read_file(const string& filename)
 {

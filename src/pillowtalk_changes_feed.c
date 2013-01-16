@@ -308,6 +308,22 @@ void safe_copy_string(char** new_str, const char* orig_str)
 }
 
 //___________________________________________________________________________
+/** A safe cat of a string.
+*/
+void safe_cat_string(char* dest, size_t dest_len, const char* cat)
+{
+  size_t current_len = safe_strlen(dest);
+  size_t input_len = safe_strlen(cat);
+
+  if (dest_len < current_len + input_len + 1) {
+    printf("Error catting string!\n");
+    return;
+  }
+  memcpy(dest + current_len, cat, input_len);
+  dest[current_len + input_len] = '\0';
+}
+
+//___________________________________________________________________________
 /** build a URL, returned char* needs to be free'd */
 char* pt_changes_feed_build_url(const char* server_name,
   const char* db,
@@ -328,19 +344,19 @@ char* pt_changes_feed_build_url(const char* server_name,
  
   // If we get here, it means that we have added options.  There is *no*
   // checking at this point!
-  strcat(ret_str, "?");
+  safe_cat_string(ret_str, size_of_string, "?");
 
   // Hearbeat
   if (handle->heartbeats) {
-    snprintf(ret_str + strlen(ret_str),size_of_string - strlen(ret_str),
+    snprintf(ret_str + safe_strlen(ret_str),size_of_string - safe_strlen(ret_str),
       "heartbeat=%i&",handle->heartbeats);
   }
 
   // Continuous
-  if (handle->continuous) strcat(ret_str, "feed=continuous&");
+  if (handle->continuous) safe_cat_string(ret_str, size_of_string, "feed=continuous&");
 
   // Adding extra options passed by the user
-  if (safe_strlen(handle->extra_opts)) strcat(ret_str, handle->extra_opts);
+  if (safe_strlen(handle->extra_opts)) safe_cat_string(ret_str, size_of_string, handle->extra_opts);
   
   // If we have an ampersand on the end, remove it
   end_of_string = &ret_str[safe_strlen(ret_str)-1];

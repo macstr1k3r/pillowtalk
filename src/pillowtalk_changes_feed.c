@@ -6,7 +6,9 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 
+#ifdef PT_HAVE_PTHREAD
 #include <pthread.h>
+#endif
 
 extern pt_node_t* parse_json(const char* json, int json_len);
 
@@ -35,10 +37,14 @@ char* index(const char* s, int c)
 
 struct pt_thread_obj_t
 {
+#ifdef PT_HAVE_PTHREAD
   pthread_t        thread;
   pthread_mutex_t  cond_mutex; 
   pthread_mutex_t  list_mutex; 
   pthread_cond_t   cond; 
+#else
+  int dummy;  // gives the struct non-zero size
+#endif
 };
 
 struct pt_changes_feed_linked_list_t {
@@ -99,7 +105,9 @@ void pt_signal_data_is_done(pt_changes_feed handle);
 int pt_block_until_data(pt_changes_feed handle);
 
 static size_t recv_changes_callback(void *ptr, size_t size, size_t nmemb, void *data);
+#ifdef PT_HAVE_PTHREAD
 static void *pt_readout_thread(void *ptr); 
+#endif
 
 size_t safe_strlen(const char* astr);
 void *safe_realloc(void *ptr, size_t size);
@@ -110,9 +118,11 @@ pt_thread_obj pt_thread_alloc()
 {
   pt_thread_obj ret_thr;
   ret_thr = calloc(1, sizeof(*ret_thr));
+#ifdef PT_HAVE_PTHREAD
   pthread_mutex_init(&ret_thr->cond_mutex, NULL);
   pthread_mutex_init(&ret_thr->list_mutex, NULL);
   pthread_cond_init(&ret_thr->cond, NULL);
+#endif
   return ret_thr;
 }
 
@@ -121,9 +131,11 @@ pt_thread_obj pt_thread_alloc()
 void pt_thread_free(pt_thread_obj thread)
 {
   if (!thread) return;
+#ifdef PT_HAVE_PTHREAD
   pthread_mutex_destroy(&thread->cond_mutex);
   pthread_mutex_destroy(&thread->list_mutex);
   pthread_cond_destroy(&thread->cond);
+#endif
   free(thread);
 }
 
@@ -171,11 +183,17 @@ void pt_buffer_free(pt_buffer buf)
 #define CHECK_AND_PERFORM_FUNCTION(check, func, var)      \
   if (check) func(var);
 
-#define CHECK_LOCK_MUTEX(check, var)                      \
-  CHECK_AND_PERFORM_FUNCTION(check, pthread_mutex_lock, var)
-
-#define CHECK_UNLOCK_MUTEX(check, var)                    \
-  CHECK_AND_PERFORM_FUNCTION(check, pthread_mutex_unlock, var)
+#ifdef PT_HAVE_PTHREAD
+  #define CHECK_LOCK_MUTEX(check, var)                      \
+    CHECK_AND_PERFORM_FUNCTION(check, pthread_mutex_lock, var)
+  
+  #define CHECK_UNLOCK_MUTEX(check, var)                    \
+    CHECK_AND_PERFORM_FUNCTION(check, pthread_mutex_unlock, var)
+#else
+// Disable the mutex checks
+  #define CHECK_LOCK_MUTEX(check, var) 
+  #define CHECK_UNLOCK_MUTEX(check, var)
+#endif
 //___________________________________________________________________________
 /** Perform thread safe list appending, this takes over ownership of the node
  * from the caller.
@@ -374,6 +392,7 @@ void pt_perform_curl(CURL *curl_handle)
   curl_easy_cleanup(curl_handle);
 }
 
+#ifdef PT_HAVE_PTHREAD
 //___________________________________________________________________________
 void *pt_readout_thread(void *arg)
 {
@@ -392,6 +411,7 @@ void *pt_readout_thread(void *arg)
   pthread_exit(0);
   return 0;
 }
+#endif
 
 //___________________________________________________________________________
 /** Perform a loop over the list in the handle, and call the callback function.
@@ -410,7 +430,7 @@ void pt_pop_from_list_and_callback(pt_changes_feed handle)
 
 //___________________________________________________________________________
 /** Does the meat of the changes feed work. */
-void pt_changes_feed_run(pt_changes_feed handle, 
+int pt_changes_feed_run(pt_changes_feed handle, 
   const char* server_name,
   const char* database) 
 {
@@ -448,6 +468,7 @@ void pt_changes_feed_run(pt_changes_feed handle,
   // Check if it's continuous readback
   if (handle->continuous) {
 
+#ifdef PT_HAVE_PTHREAD
     /* We now need to deal with starting the thread */ 
      
     // Alloc a thread
@@ -478,6 +499,10 @@ void pt_changes_feed_run(pt_changes_feed handle,
     
     // Set to NULL
     handle->thread = NULL;
+#else
+    printf("Pillowtalk not compiled with pthreads, continuous changes feed support DISABLED.\n");
+    return 1;
+#endif
 
   } else { // Not continuous
     // We don't need to create any threads, simply perform the curl command. 
@@ -491,6 +516,7 @@ void pt_changes_feed_run(pt_changes_feed handle,
   // Now loop over the nodes that are still in the queue and pass them on to
   // the callback function
   pt_pop_from_list_and_callback(handle);
+  return 0;
 
 }
 
@@ -591,31 +617,38 @@ int pt_process_changes_feed_buffer(pt_changes_feed handle, int flush)
   return ret_val;
 }
 
-
-#define CHECK_COND_FLAG_BEGIN(handle)                              \
-  pt_thread_obj thread_obj = handle->thread;                       \
-  pthread_mutex_lock(&thread_obj->cond_mutex);                     \
-
-#define COND_WAIT(handle, astat)                                   \
-  while (handle->status == astat) {                                \
-    pthread_cond_wait(&thread_obj->cond, &thread_obj->cond_mutex); \
-  } 
-
-// Perform a signal if that status is correct
-#define COND_SIGNAL(handle, astat, new_stat)                       \
-  if (handle->status == astat) {                                   \
-    pthread_cond_signal(&thread_obj->cond);                        \
-  }                                                                \
-  handle->status = new_stat;
-
-#define CHECK_COND_FLAG_END \
-  pthread_mutex_unlock(&thread_obj->cond_mutex);
+#ifdef PT_HAVE_PTHREAD
+  #define CHECK_COND_FLAG_BEGIN(handle)                              \
+    pt_thread_obj thread_obj = handle->thread;                       \
+    pthread_mutex_lock(&thread_obj->cond_mutex);                     \
+  
+  #define COND_WAIT(handle, astat)                                   \
+    while (handle->status == astat) {                                \
+      pthread_cond_wait(&thread_obj->cond, &thread_obj->cond_mutex); \
+    } 
+  
+  // Perform a signal if that status is correct
+  #define COND_SIGNAL(handle, astat, new_stat)                       \
+    if (handle->status == astat) {                                   \
+      pthread_cond_signal(&thread_obj->cond);                        \
+    }                                                                \
+    handle->status = new_stat;
+  
+  #define CHECK_COND_FLAG_END \
+    pthread_mutex_unlock(&thread_obj->cond_mutex);
+#else
+  #define CHECK_COND_FLAG_BEGIN(handle)
+  #define COND_WAIT(handle, astat)
+  // Perform a signal if that status is correct
+  #define COND_SIGNAL(handle, astat, new_stat)                       \
+    handle->status = new_stat;
+  #define CHECK_COND_FLAG_END 
+#endif
 
 //______________________________________________________________________________
 /** signal that data is ready */
 void pt_signal_data_is_ready(pt_changes_feed handle) 
 {
-  //return;
   CHECK_COND_FLAG_BEGIN(handle)
   // Set the status to allow the condition to continue
   COND_SIGNAL(handle, 

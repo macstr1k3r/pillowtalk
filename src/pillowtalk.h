@@ -237,9 +237,9 @@ PT_API pt_changes_feed pt_changes_feed_alloc();
 PT_API int pt_changes_feed_config(pt_changes_feed handle, pt_changes_feed_option opt, ...);
 
 /** Run the changes feed will start the changes feed, this will block until the
- * changes feed ends. 
+ * changes feed ends.  Returns 0 on success, 1 on error. 
  */
-PT_API void pt_changes_feed_run(pt_changes_feed handle,
+PT_API int pt_changes_feed_run(pt_changes_feed handle,
   const char* server_name,
   const char* database); 
 
